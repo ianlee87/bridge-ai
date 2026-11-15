@@ -1,0 +1,20 @@
+# Bridge scored test cases. Used by eval.py.
+# Format:  caregiver question | fragments (split by "...") | pointing at | expected sentence
+# "none" = not given. Expected "URGENT" = must trigger the keyword alert, not Bonsai.
+# To test by voice, read the fragments aloud while holding SPACE, pausing ~1 s at each "...".
+
+"Want something to drink?" | hot... that | cup | Could I have something hot in that cup?
+none | off... sleep | tv | Please turn off the TV. I want to sleep.
+"Do you want lunch?" | yes... half | sandwich | Yes, I'd like half a sandwich, please.
+none | channel... news | remote | Could you change the channel to the news?
+"Are you comfortable?" | no... cold... blanket | none | No, I'm cold. Could I have a blanket?
+none | brush... now | toothbrush | I'd like to brush my teeth now.
+"Want to sit up?" | there... window | chair | Can you help me to the chair by the window?
+none | glasses... where | none | Where are my glasses?
+"Is that too loud?" | yes... down | tv | Yes, please turn the TV down.
+none | no... this one | apple | Not the banana. I'd like the apple, please.
+"Visitors are coming soon." | who... son? | none | Who's coming? Is it my son?
+none | bathroom... help | none | I need help getting to the bathroom.
+"Do you need anything?" | email... wife | laptop | Can you help me email my wife on the laptop?
+none | time... medicine | clock | What time is it? Is it time for my medicine?
+"How's the pain?" | chest... pain | none | URGENT

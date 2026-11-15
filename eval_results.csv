@@ -1,0 +1,30 @@
+case,run,caregiver,fragments,pointing_at,expected,option_1,option_2,option_3,filtered_out,keyword_score,judge,bonsai_ms
+1,with pointing,Want something to drink?,hot ... that,cup,Could I have something hot in that cup?,I want that hot drink.,Please give me that hot drink.,,Would you like that hot drink?,0.25,y,816
+1,without pointing,Want something to drink?,hot ... that,,Could I have something hot in that cup?,I'd like that hot drink.,"Yes, that hot drink.",I want that hot drink.,Do you want that hot drink? | Would you give me that hot drink?,0.25,y,1559
+2,with pointing,,off ... sleep,tv,Please turn off the TV. I want to sleep.,Can I turn off the TV and sleep?,I'd like to turn off the TV so I can sleep.,"Please turn off the TV, then I'll sleep.",,1.0,y,937
+2,without pointing,,off ... sleep,,Please turn off the TV. I want to sleep.,I want to go off sleep.,I need to sleep now.,Let's go to sleep.,,0.5,n,736
+3,with pointing,Do you want lunch?,yes ... half,sandwich,"Yes, I'd like half a sandwich, please.",I want half of the lunch.,"Yes, I'd like half of that sandwich.",Can I have half of the lunch?,,1.0,y,825
+3,without pointing,Do you want lunch?,yes ... half,,"Yes, I'd like half a sandwich, please.","Yes, I'd like half lunch.",I want half of the lunch.,,"Do you have half lunch for me, yes?",0.5,y,839
+4,with pointing,,channel ... news,remote,Could you change the channel to the news?,Can I change the channel to news?,I want to watch the news on this channel.,Please show me the news channel.,,1.0,y,823
+4,without pointing,,channel ... news,,Could you change the channel to the news?,I want to watch the news channel.,Can we watch the news channel?,Please turn on the news channel.,,0.67,y,771
+5,with pointing,Are you comfortable?,no ... cold ... blanket,,"No, I'm cold. Could I have a blanket?","I'm not comfortable, it's cold. I need a blanket.","No, I'm too cold for this blanket.",I feel no comfortable with the cold blanket.,,0.67,y,988
+5,without pointing,Are you comfortable?,no ... cold ... blanket,,"No, I'm cold. Could I have a blanket?","I'm not comfortable, it's cold. I need a blanket.","No, I'm too cold. Please give me a blanket.","I can't stay comfortable; it's cold, I need a blanket.",,0.67,y,1111
+6,with pointing,,brush ... now,toothbrush,I'd like to brush my teeth now.,I need to brush my teeth now.,Let's brush now.,Please brush the toothbrush now.,,1.0,y,735
+6,without pointing,,brush ... now,,I'd like to brush my teeth now.,I need to brush now.,Please help me brush now.,I want to brush now.,,0.67,y,799
+7,with pointing,Want to sit up?,there ... window,chair,Can you help me to the chair by the window?,Can I sit up by the window?,I want to sit up near the window.,"There is a chair, can I sit by the window?",,0.67,y,955
+7,without pointing,Want to sit up?,there ... window,,Can you help me to the chair by the window?,Can I sit up by the window?,"There is a window, can I sit up there?",I want to sit up by the window.,,0.33,n,896
+8,with pointing,,glasses ... where,,Where are my glasses?,Where are my glasses?,I need to find where the glasses are.,Where can I get my glasses?,,1.0,y,766
+8,without pointing,,glasses ... where,,Where are my glasses?,Where are my glasses?,I need to find where my glasses are.,Can you tell me where the glasses are?,,1.0,y,1032
+9,with pointing,Is that too loud?,yes ... down,tv,"Yes, please turn the TV down.","Yes, please turn it down.","That is too loud, please turn it down.",Is that too loud? Please turn it down.,,0.67,y,965
+9,without pointing,Is that too loud?,yes ... down,,"Yes, please turn the TV down.","Yes, please turn it down.","Is that too loud? Yes, please turn it down.","Yes, I want you to turn it down.",,0.67,y,944
+10,with pointing,,no ... this one,apple,"Not the banana. I'd like the apple, please.","No, I don't want this one.",I'm not taking this apple.,This one is no good.,,0.5,n,792
+10,without pointing,,no ... this one,,"Not the banana. I'd like the apple, please.","No, not this one.",I don't want this one.,Not this one.,,0.0,n,697
+11,with pointing,Visitors are coming soon.,who ... son?,,Who's coming? Is it my son?,"Who is coming, my son?",Is it your son who is coming soon?,My son will be visiting soon.,,0.67,y,801
+11,without pointing,Visitors are coming soon.,who ... son?,,Who's coming? Is it my son?,Who are the visitors coming soon?,Are the visitors my son? coming soon.,"The visitors are coming, who is it?",,0.67,y,853
+12,with pointing,,bathroom ... help,,I need help getting to the bathroom.,Could you help me to the bathroom?,I need help in the bathroom.,Can you take me to the bathroom?,,0.75,y,801
+12,without pointing,,bathroom ... help,,I need help getting to the bathroom.,Can you help me to the bathroom?,I need help in the bathroom.,Please help me go to the bathroom.,,0.75,y,786
+13,with pointing,Do you need anything?,email ... wife,laptop,Can you help me email my wife on the laptop?,Can I send an email to my wife from the laptop?,I need to email my wife using this laptop.,,Do you want me to email your wife from the laptop?,0.75,y,967
+13,without pointing,Do you need anything?,email ... wife,,Can you help me email my wife on the laptop?,I need to email my wife.,Can I send an email to my wife?,,Do you want me to email your wife?,0.5,y,814
+14,with pointing,,time ... medicine,clock,What time is it? Is it time for my medicine?,It's time for my medicine.,I need to take my medicine at this time.,When is the medicine time?,,0.67,y,819
+14,without pointing,,time ... medicine,,What time is it? Is it time for my medicine?,Do I need to take the medicine at this time?,I need to take the medicine now.,When should I take the medicine?,,0.67,y,886
+15,urgent,How's the pain?,chest ... pain,,URGENT,URGENT alert (chest + pain),,,,,y,
