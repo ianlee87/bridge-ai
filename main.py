@@ -3,6 +3,8 @@
 Live mode (normal use):
     python main.py                 (shows the camera window; --camera 1 for another camera,
                                     --no-window to hide the window, --no-vision for no camera)
+    python main.py --web           (the UI in a browser instead: open http://localhost:8000;
+                                    a click on an option card picks it)
       hold SPACE  = record the patient, release to stop
       (the camera notes what the patient points at; thumbs-up picks the highlighted option)
       hold C      = record the caregiver's question (used as context next turn)
@@ -86,7 +88,8 @@ def run_patient_turn(stt, brain, audio=None, wav_path=None, caregiver_question=N
             f"{w['word']}({w['start']:.2f}-{w['end']:.2f})" for w in words) + "[/]")
     console.print("[bold]Fragments:[/] " + "  |  ".join(f"[cyan]{f}[/]" for f in fragments))
     ui.update(heard="... ".join(f.strip(" .,?!") for f in fragments) or None,
-              pointing=pointing_at, pointing_locked=True,
+              fragments=list(fragments), pointing=pointing_at,
+              pointing_method=pointing_method, pointing_locked=True,
               timings={"stt": timings["speech-to-text (WhisperKit)"]})
 
     if not fragments:
@@ -99,7 +102,7 @@ def run_patient_turn(stt, brain, audio=None, wav_path=None, caregiver_question=N
     reason = check_urgent(fragments)
     timings["urgent check"] = time.perf_counter() - t0
     if reason:
-        ui.update(urgent=reason.replace(" + ", " "), status="ready")
+        ui.update(urgent=reason.replace(" + ", " "), status="idle")
         console.print(Panel(
             f"[bold white]The patient may need help right now.[/]\n\n"
             f"Heard: \"{' '.join(fragments)}\"\nTrigger: {reason}",
@@ -131,7 +134,7 @@ def run_patient_turn(stt, brain, audio=None, wav_path=None, caregiver_question=N
         show_timings(timings)
         return None, timings
 
-    ui.update(options=list(options), status="pick one")
+    ui.update(options=list(options), status="picking")
     console.print(f"[bold]Options[/] [dim](parsed via {result['how']})[/]:")
     for i, option in enumerate(options, start=1):
         console.print(f"  [bold green]{i}[/]  {option}")
@@ -157,7 +160,7 @@ def speak_choice(options, pick):
     t0 = time.perf_counter()
     engine = speak(sentence)
     seconds = time.perf_counter() - t0
-    ui.update(status="ready", timings={"tts": seconds})
+    ui.update(status="idle", timings={"tts": seconds})
     console.print(f"[dim]text-to-speech ({engine}): {ms(seconds)}[/]")
     return seconds
 
@@ -270,14 +273,16 @@ HIGHLIGHT_STEP_S = 2.5    # thumbs-up mode: highlight moves to the next option t
 WINDOW_TITLE = "Bridge camera"
 
 
-def start_vision(camera_index, background=True):
+def start_vision(camera_index, background=True, web=False):
     """Open the camera and load the vision models. Returns the Vision object, or
     None if it failed. background=True also starts vision's own thread; with
-    background=False the caller must call vision.step() itself (window mode)."""
+    background=False the caller must call vision.step() itself (window mode).
+    web=True makes vision's thread also keep a JPEG of each annotated frame."""
     console.print("[dim]Starting camera...[/]")
     try:
         from vision import Vision      # imported here so --no-vision never loads YOLO
         vision = Vision(camera_index)
+        vision.web = web
         ok, message = vision.start() if background else vision.open()
     except Exception as e:
         ok, message = False, f"{type(e).__name__}: {e}"
@@ -344,7 +349,7 @@ def run_live(vision, keys):
 
     while True:
         console.print("\n[bold]Waiting...[/] hold SPACE (patient) or C (caregiver)")
-        ui.update(status="ready", urgent=None)
+        ui.update(status="idle", urgent=None)
         keys.clear()
         key = keys.wait_down({"space", "c", "q", "esc"})
         if key in ("q", "esc"):
@@ -360,6 +365,7 @@ def run_live(vision, keys):
             text, _ = stt.transcribe(audio)
             console.print(f"[bold cyan]Caregiver asked:[/] {text}  [dim]({ms(time.perf_counter() - t0)})[/]")
             caregiver_question = text or None
+            ui.update(caregiver=caregiver_question)
             continue
 
         # ----- Patient turn -----
@@ -385,7 +391,7 @@ def run_live(vision, keys):
                                           pointing_method=pointing_method,
                                           vision_seconds=vision_seconds)
         except Exception as e:
-            ui.update(status="ready")
+            ui.update(status="idle")
             console.print(f"[red]Speech-to-text failed: {e}. Is WhisperKit running on port 50060?[/]")
             continue
 
@@ -399,12 +405,13 @@ def run_live(vision, keys):
         # Patient picks (key or thumbs-up). Nothing is spoken without a pick.
         pick, how = wait_for_pick(keys, options, vision)
         if pick == 0:
-            ui.update(status="ready")
+            ui.update(status="idle")
             console.print("[yellow]OK, let's try again.[/]")
             continue        # keep the caregiver question for the retry
         console.print(f"[bold]Picked {pick}[/] [dim](by {how})[/]")
         speak_choice(options, pick)
         caregiver_question = None   # that question has been answered
+        ui.update(caregiver=None)
 
 
 def run_with_window(camera_index, keys):
@@ -456,6 +463,20 @@ def run_with_window(camera_index, keys):
         pass
 
 
+def run_with_web(camera_index, keys, use_vision=True, port=8000):
+    """Live mode with the web page at http://localhost:8000 instead of the window.
+      vision's own thread  - camera + YOLO + hands, keeps the latest annotated JPEG
+      web server thread    - serves the page, /video (MJPEG), /events (live state)
+      main thread          - the keyboard + voice loop (run_live), as with --no-window
+    A click on a card on the page is turned into the same key press as 1 / 2 / 3."""
+    import web
+
+    vision = start_vision(camera_index, background=True, web=True) if use_vision else None
+    web.start(vision, keys, port)
+    console.print(f"[bold green]Web UI:[/] open http://localhost:{port}")
+    run_live(vision, keys)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Bridge: aphasia speech companion")
     parser.add_argument("--wav", help="test mode: process this WAV file instead of the mic")
@@ -466,6 +487,8 @@ def main():
     parser.add_argument("--camera", type=int, default=0, help="live mode: camera number (default 0)")
     parser.add_argument("--no-window", action="store_true",
                         help="live mode: use the camera but don't show its window")
+    parser.add_argument("--web", action="store_true",
+                        help="live mode: show the UI at http://localhost:8000 instead of the window")
     args = parser.parse_args()
 
     if args.wav:
@@ -481,7 +504,9 @@ def main():
     try:
         # The keyboard listener is created here, on the main thread, in every mode.
         keys = Keys()
-        if args.no_vision:
+        if args.web:
+            run_with_web(args.camera, keys, use_vision=not args.no_vision)
+        elif args.no_vision:
             run_live(None, keys)
         elif args.no_window:
             run_live(start_vision(args.camera, background=True), keys)

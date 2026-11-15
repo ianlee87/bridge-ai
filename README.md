@@ -25,7 +25,7 @@ it all runs on the mac. it works with wi-fi off.
    ```bash
    cd ~/bridge
    python3.12 -m venv .venv
-   .venv/bin/pip install openai sounddevice numpy rich pynput ultralytics mediapipe opencv-python
+   .venv/bin/pip install openai sounddevice numpy rich pynput ultralytics mediapipe opencv-python flask
    ```
 2. lm studio: load `ternary-bonsai-2-4b-mlx` and start the server on port 1235.
 3. whisperkit server on port 50060, in its own terminal tab:
@@ -56,6 +56,17 @@ it all runs on the mac. it works with wi-fi off.
 - `q` or `esc`: quit
 
 `--no-vision` turns the camera off. `--no-window` hides the camera window.
+
+### web ui
+
+```bash
+.venv/bin/python main.py --camera 1 --web
+```
+
+then open http://localhost:8000. same keys as above, and you can also click a card to pick it.
+it's served from the mac itself (no internet, no cdns). without `--web` you get the opencv window.
+
+![bridge web ui](docs/screenshot.png)
 
 "chest pain", "can't breathe" or just "help" skips the model and shows an urgent box.
 

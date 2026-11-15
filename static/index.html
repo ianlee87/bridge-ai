@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bridge</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="app">
+    <section class="camera" aria-label="Camera">
+      <img id="video" src="/video" alt="Camera view with what the patient points at">
+      <div class="camera-off" id="camera-off">camera off</div>
+      <div class="pill pointing" id="pointing" aria-live="polite">
+        <span class="pill-label">pointing at</span>
+        <span class="pill-value" id="pointing-value">nothing</span>
+        <span class="pill-method" id="pointing-method"></span>
+      </div>
+      <div class="pill thumbs" id="thumbs">
+        <span id="thumbs-label">thumbs up</span>
+        <span class="thumbs-bar"><span id="thumbs-fill"></span></span>
+      </div>
+    </section>
+
+    <section class="panel" aria-label="Bridge">
+      <header class="panel-head">
+        <h1>bridge</h1>
+        <div class="status" id="status" data-status="starting" role="status" aria-live="polite">
+          <span class="dot"></span><span id="status-label">starting</span>
+        </div>
+      </header>
+      <p class="hint" id="hint">warming up…</p>
+
+      <div class="field caregiver" id="caregiver-field">
+        <div class="label">caregiver asked</div>
+        <div class="value" id="caregiver"></div>
+      </div>
+
+      <div class="field">
+        <div class="label">heard</div>
+        <div class="value heard" id="heard" aria-live="polite"><span class="empty">–</span></div>
+      </div>
+
+      <ol class="options" id="options" aria-label="Options"></ol>
+
+      <footer class="foot">
+        <div class="timings" id="timings"></div>
+        <div class="badge"><span class="badge-dot"></span>offline · wi-fi off</div>
+      </footer>
+    </section>
+  </main>
+
+  <div class="urgent" id="urgent" role="alert" aria-live="assertive">
+    <div class="urgent-inner">
+      <div class="urgent-kicker">urgent</div>
+      <div class="urgent-reason" id="urgent-reason"></div>
+      <div class="urgent-note">caregiver: check now</div>
+      <div class="urgent-ack">press any number key to continue</div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

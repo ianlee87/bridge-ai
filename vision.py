@@ -158,6 +158,9 @@ class Vision:
         self.lock = threading.Lock()       # protects the values main.py reads
         self.running = False
         self.thread = None
+        self.web = False                   # True: _loop keeps a JPEG of each annotated frame
+        self.jpeg = None                   # latest annotated frame as JPEG bytes (web mode)
+        self.jpeg_no = 0                   # goes up by 1 with each new JPEG
 
         # Shared results (read by main.py from another thread)
         self._target = None                # {"label", "method", "time"}
@@ -295,6 +298,13 @@ class Vision:
             return None
         return dict(t)
 
+    def get_thumbs_up_progress(self):
+        """(0-1 progress, counted?) of the thumbs-up being held now, or None."""
+        since = self.thumbs_since
+        if since is None:
+            return None
+        return min(1.0, (time.time() - since) / THUMBS_UP_HOLD_S), self.thumbs_fired
+
     def get_thumbs_up_count(self):
         with self.lock:
             return self.thumbs_up_count
@@ -321,7 +331,12 @@ class Vision:
     def _loop(self):
         while self.running:
             started = time.time()
-            self.step()
+            picture = self.step(draw=self.web)
+            if self.web and picture is not None:
+                ok, jpeg = cv2.imencode(".jpg", picture, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                if ok:
+                    with self.lock:
+                        self.jpeg, self.jpeg_no = jpeg.tobytes(), self.jpeg_no + 1
             # Wait so we run at about MAX_FPS (the camera itself sends ~30).
             time.sleep(max(0.0, 1 / MAX_FPS - (time.time() - started)))
 
@@ -335,12 +350,12 @@ class Vision:
     # ---------- drawing ----------
     def _draw(self, frame):
         """The whole app window (camera + side panel); the look lives in ui.py."""
-        thumbs = None
-        if self.thumbs_since is not None:
-            thumbs = (min(1.0, (time.time() - self.thumbs_since) / THUMBS_UP_HOLD_S),
-                      self.thumbs_fired)
+        thumbs = self.get_thumbs_up_progress()
         knuckle = self.hand[INDEX_KNUCKLE] if self.hand else None
         tip = self.hand[INDEX_TIP] if self.hand else None
+        if self.web:                       # the page draws the panel; send just the camera
+            return ui.render_camera(frame, self.objects, self.hand, self.current_target(),
+                                    knuckle, tip)
         return ui.render(frame, self.objects, self.hand, self.current_target(), thumbs,
                          knuckle, tip)
 

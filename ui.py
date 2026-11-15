@@ -30,8 +30,8 @@ YELLOW = (250, 222, 122)
 GREEN = (98, 200, 130)
 RED = (214, 52, 52)
 BLUE = (110, 160, 250)
-STATUS_COLORS = {"ready": MUTED, "listening": (240, 90, 90), "thinking": BLUE,
-                 "pick one": YELLOW, "speaking": GREEN}
+STATUS_COLORS = {"idle": MUTED, "listening": (240, 90, 90), "thinking": BLUE,
+                 "picking": YELLOW, "speaking": GREEN}
 
 
 # ---------------------------------------------------------------------------
@@ -42,9 +42,12 @@ class UIState:
     def __init__(self):
         self._lock = threading.Lock()
         self._values = {
-            "status": "ready",     # ready / listening / thinking / pick one / speaking
+            "status": "starting",  # starting / idle / listening / thinking / picking / speaking
             "heard": None,         # "drink... please"
+            "fragments": [],       # ["drink.", "please."]
+            "caregiver": None,     # the caregiver's question, until it is answered
             "pointing": None,      # what the patient pointed at for this turn
+            "pointing_method": None,    # ray / nearest / held
             "pointing_locked": False,   # False = show the live camera target instead
             "options": [],
             "highlight": None,     # index of the yellow card (thumbs-up mode)
@@ -61,7 +64,8 @@ class UIState:
 
     def new_turn(self):
         """Clear the last turn's results (called when the patient starts speaking)."""
-        self.update(heard=None, pointing=None, pointing_locked=False, options=[],
+        self.update(heard=None, fragments=[], pointing=None, pointing_method=None,
+                    pointing_locked=False, options=[],
                     highlight=None, chosen=None, urgent=None)
         with self._lock:
             self._values["timings"] = {}
@@ -122,6 +126,38 @@ def fit(draw, text, fnt, max_width):
 # ---------------------------------------------------------------------------
 # Drawing
 # ---------------------------------------------------------------------------
+
+def render_camera(frame, objects, hand, target, index_knuckle, index_tip):
+    """Just the annotated camera picture (BGR, same size as frame), for the web page.
+    Thin boxes, the hand and the pointing ray; the page draws everything else."""
+    frame = frame.copy()
+    target_label = target["label"] if target else None
+    for label, box in objects:
+        x1, y1, x2, y2 = map(int, box)
+        is_target = label == target_label
+        cv2.rectangle(frame, (x1, y1), (x2, y2), YELLOW[::-1] if is_target else (225, 225, 225),
+                      3 if is_target else 2, cv2.LINE_AA)
+    if hand:
+        for x, y in hand:
+            cv2.circle(frame, (int(x), int(y)), 3, (210, 210, 210), -1, cv2.LINE_AA)
+        (kx, ky), (tx, ty) = index_knuckle, index_tip
+        far = (int(tx + (tx - kx) * 20), int(ty + (ty - ky) * 20))
+        cv2.line(frame, (int(tx), int(ty)), far, YELLOW[::-1], 2, cv2.LINE_AA)
+        cv2.circle(frame, (int(tx), int(ty)), 8, YELLOW[::-1], -1, cv2.LINE_AA)
+    if not objects:
+        return frame
+    image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    draw = ImageDraw.Draw(image)
+    f = font(20, "medium")
+    for label, box in objects:
+        is_target = label == target_label
+        w = draw.textlength(label, font=f) + 22
+        x, y = max(6, box[0]), max(6, box[1] - 36)
+        draw.rounded_rectangle((x, y, x + w, y + 30), 15, fill=YELLOW if is_target else (30, 30, 34))
+        draw.text((x + 11, y + 15), label, font=f, anchor="lm",
+                  fill=DARK_TEXT if is_target else TEXT)
+    return cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR)
+
 
 _cam_mask = Image.new("L", (CAM[2] - CAM[0], CAM[3] - CAM[1]), 0)
 ImageDraw.Draw(_cam_mask).rounded_rectangle((0, 0, *_cam_mask.size), RADIUS, fill=255)
