@@ -26,6 +26,7 @@ from rich.table import Table
 from audio import SAMPLE_RATE, PushToTalkRecorder, Transcriber, speak, warm_up_tts
 from brain import LLM_MODEL, Brain
 from fragments import check_urgent, make_fragments
+from ui import state as ui
 
 console = Console()
 
@@ -84,6 +85,9 @@ def run_patient_turn(stt, brain, audio=None, wav_path=None, caregiver_question=N
         console.print("[dim]Word timings: " + "  ".join(
             f"{w['word']}({w['start']:.2f}-{w['end']:.2f})" for w in words) + "[/]")
     console.print("[bold]Fragments:[/] " + "  |  ".join(f"[cyan]{f}[/]" for f in fragments))
+    ui.update(heard="... ".join(f.strip(" .,?!") for f in fragments) or None,
+              pointing=pointing_at, pointing_locked=True,
+              timings={"stt": timings["speech-to-text (WhisperKit)"]})
 
     if not fragments:
         console.print("[yellow]Nothing heard. Try again.[/]")
@@ -95,6 +99,7 @@ def run_patient_turn(stt, brain, audio=None, wav_path=None, caregiver_question=N
     reason = check_urgent(fragments)
     timings["urgent check"] = time.perf_counter() - t0
     if reason:
+        ui.update(urgent=reason.replace(" + ", " "), status="ready")
         console.print(Panel(
             f"[bold white]The patient may need help right now.[/]\n\n"
             f"Heard: \"{' '.join(fragments)}\"\nTrigger: {reason}",
@@ -116,6 +121,7 @@ def run_patient_turn(stt, brain, audio=None, wav_path=None, caregiver_question=N
         return None, timings
     timings["Bonsai options" + (" (asked twice)" if result["retried"] else "")] = \
         time.perf_counter() - t0
+    ui.update(timings={"bonsai": time.perf_counter() - t0})
     options = result["options"]
 
     for d in result["dropped"]:
@@ -125,6 +131,7 @@ def run_patient_turn(stt, brain, audio=None, wav_path=None, caregiver_question=N
         show_timings(timings)
         return None, timings
 
+    ui.update(options=list(options), status="pick one")
     console.print(f"[bold]Options[/] [dim](parsed via {result['how']})[/]:")
     for i, option in enumerate(options, start=1):
         console.print(f"  [bold green]{i}[/]  {option}")
@@ -146,9 +153,11 @@ def speak_choice(options, pick):
     """Speak option number `pick` (1-3). Returns the TTS time in seconds."""
     sentence = options[pick - 1]
     console.print(f"[bold green]Speaking:[/] {sentence}")
+    ui.update(status="speaking", chosen=pick - 1, highlight=None)
     t0 = time.perf_counter()
     engine = speak(sentence)
     seconds = time.perf_counter() - t0
+    ui.update(status="ready", timings={"tts": seconds})
     console.print(f"[dim]text-to-speech ({engine}): {ms(seconds)}[/]")
     return seconds
 
@@ -245,10 +254,12 @@ class Keys:
 def record_while_held(keys, recorder, key, label):
     """Record from the mic until `key` is released."""
     recorder.start()
+    ui.update(status="listening")
     t0 = time.perf_counter()
     console.print(f"[bold red]● Recording {label}...[/] (release {key.upper()} to stop)")
     keys.wait_up(key)
     audio = recorder.stop()
+    ui.update(status="thinking")
     console.print(f"[dim]recorded {ms(time.perf_counter() - t0)}[/]")
     return audio
 
@@ -333,6 +344,7 @@ def run_live(vision, keys):
 
     while True:
         console.print("\n[bold]Waiting...[/] hold SPACE (patient) or C (caregiver)")
+        ui.update(status="ready", urgent=None)
         keys.clear()
         key = keys.wait_down({"space", "c", "q", "esc"})
         if key in ("q", "esc"):
@@ -351,6 +363,7 @@ def run_live(vision, keys):
             continue
 
         # ----- Patient turn -----
+        ui.new_turn()
         audio = record_while_held(keys, recorder, "space", "PATIENT")
         if audio is None:
             console.print("[yellow]Too short, try again.[/]")
@@ -372,6 +385,7 @@ def run_live(vision, keys):
                                           pointing_method=pointing_method,
                                           vision_seconds=vision_seconds)
         except Exception as e:
+            ui.update(status="ready")
             console.print(f"[red]Speech-to-text failed: {e}. Is WhisperKit running on port 50060?[/]")
             continue
 
@@ -385,6 +399,7 @@ def run_live(vision, keys):
         # Patient picks (key or thumbs-up). Nothing is spoken without a pick.
         pick, how = wait_for_pick(keys, options, vision)
         if pick == 0:
+            ui.update(status="ready")
             console.print("[yellow]OK, let's try again.[/]")
             continue        # keep the caregiver question for the retry
         console.print(f"[bold]Picked {pick}[/] [dim](by {how})[/]")

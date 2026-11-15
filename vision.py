@@ -37,6 +37,8 @@ import numpy as np
 from mediapipe.tasks.python import BaseOptions
 from mediapipe.tasks.python import vision as mpv
 
+import ui
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 YOLO_MODEL = os.path.join(HERE, "yolov8n.pt")
 HAND_MODEL = os.path.join(HERE, "models", "hand_landmarker.task")
@@ -171,7 +173,6 @@ class Vision:
         self.thumbs_fired = False          # already counted this thumbs-up?
         self.fps = 0.0
         self._fps_frames, self._fps_start = 0, time.time()
-        self._pick = None                  # (options, highlighted index) shown at the bottom
 
     # ---------- setup ----------
     def open(self):
@@ -299,10 +300,12 @@ class Vision:
             return self.thumbs_up_count
 
     def set_pick_overlay(self, options, highlight):
-        """Show these options at the bottom of the window, `highlight` (0-based) in yellow.
-        Pass options=None to hide them. Safe to call from another thread."""
-        with self.lock:
-            self._pick = (list(options), highlight) if options else None
+        """Show these options in the window's panel, `highlight` (0-based) in yellow.
+        Pass options=None to stop highlighting. Safe to call from another thread."""
+        if options:
+            ui.state.update(options=list(options), highlight=highlight)
+        else:
+            ui.state.update(highlight=None)
 
     # ---------- background thread (used by main.py) ----------
     def start(self):
@@ -329,62 +332,17 @@ class Vision:
         if self.cap:
             self.cap.release()
 
-    # ---------- debug drawing ----------
+    # ---------- drawing ----------
     def _draw(self, frame):
-        target = self.current_target()
-        for label, box in self.objects:
-            x1, y1, x2, y2 = map(int, box)
-            color = (0, 215, 255) if target and label == target["label"] else (0, 200, 0)
-            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-            cv2.putText(frame, label, (x1 + 4, y1 + 22), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
-        if self.hand:
-            for x, y in self.hand:
-                cv2.circle(frame, (int(x), int(y)), 3, (200, 200, 200), -1)
-            kx, ky = self.hand[INDEX_KNUCKLE]
-            tx, ty = self.hand[INDEX_TIP]
-            # the ray: from the knuckle, through the fingertip, far past it
-            far = (int(tx + (tx - kx) * 20), int(ty + (ty - ky) * 20))
-            cv2.line(frame, (int(kx), int(ky)), far, (255, 0, 255), 2)
-            cv2.circle(frame, (int(tx), int(ty)), 10, (255, 0, 255), -1)   # fingertip
-        text = (f"pointing at: {target['label']} ({target['method']})" if target
-                else "pointing at: nothing")
-        cv2.rectangle(frame, (0, 0), (frame.shape[1], 85), (0, 0, 0), -1)   # dark bar behind text
-        cv2.putText(frame, text, (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.6, (255, 255, 255), 3)
+        """The whole app window (camera + side panel); the look lives in ui.py."""
+        thumbs = None
         if self.thumbs_since is not None:
-            held = min(1.0, (time.time() - self.thumbs_since) / THUMBS_UP_HOLD_S)
-            label = "THUMBS UP!" if self.thumbs_fired else f"thumbs up {held:.0%}"
-            cv2.putText(frame, label, (20, 130), cv2.FONT_HERSHEY_SIMPLEX, 1.4, (0, 255, 0), 3)
-        fps_text = f"{self.fps:.1f} FPS  YOLO:{self.device}"
-        (text_w, _), _ = cv2.getTextSize(fps_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
-        cv2.putText(frame, fps_text, (frame.shape[1] - text_w - 20, 55),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
-        with self.lock:
-            pick = self._pick
-        if pick:
-            self._draw_options(frame, *pick)
-        return frame
-
-    def _draw_options(self, frame, options, highlight):
-        """The options at the bottom of the picture; the highlighted one in yellow."""
-        height, width = frame.shape[:2]
-        row_h = 54
-        top = height - row_h * len(options) - 16
-        for i, option in enumerate(options):
-            y1 = top + i * row_h
-            if i == highlight:
-                background, text_color = (0, 215, 255), (0, 0, 0)        # yellow, black text
-            else:
-                background, text_color = (40, 40, 40), (255, 255, 255)   # dark grey, white text
-            cv2.rectangle(frame, (12, y1), (width - 12, y1 + row_h - 6), background, -1)
-            # OpenCV fonts are plain ASCII: swap curly quotes, drop anything else.
-            text = f"{i + 1}  " + option.replace("’", "'").replace("“", '"') \
-                .replace("”", '"').encode("ascii", "ignore").decode()
-            scale = 1.0
-            while scale > 0.5 and cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX,
-                                                  scale, 2)[0][0] > width - 60:
-                scale -= 0.05                    # shrink long sentences to fit
-            cv2.putText(frame, text, (28, y1 + row_h - 20), cv2.FONT_HERSHEY_SIMPLEX,
-                        scale, text_color, 2)
+            thumbs = (min(1.0, (time.time() - self.thumbs_since) / THUMBS_UP_HOLD_S),
+                      self.thumbs_fired)
+        knuckle = self.hand[INDEX_KNUCKLE] if self.hand else None
+        tip = self.hand[INDEX_TIP] if self.hand else None
+        return ui.render(frame, self.objects, self.hand, self.current_target(), thumbs,
+                         knuckle, tip)
 
 
 # ---------------------------------------------------------------------------
